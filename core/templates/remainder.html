@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Set Reminder</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(to right, #6a11cb, #2575fc);
+      color: white;
+      padding: 50px;
+      text-align: center;
+    }
+    h2 {
+      margin-bottom: 30px;
+    }
+    button {
+      padding: 12px 24px;
+      margin: 10px;
+      border: none;
+      border-radius: 8px;
+      font-size: 1.1em;
+      cursor: pointer;
+      transition: 0.3s ease;
+    }
+    .yes {
+      background-color: #2ecc71;
+    }
+    .no {
+      background-color: #e74c3c;
+    }
+    button:hover {
+      opacity: 0.8;
+    }
+  </style>
+</head>
+<body>
+  <h2>Would you like to set a reminder before the project deadline?</h2>
+  <p id="project-info"></p>
+
+  <button class="yes" onclick="setReminder(true)">Yes</button>
+  <button class="no" onclick="setReminder(false)">No</button>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const name = params.get("name");
+
+    document.getElementById("project-info").innerText = "Project: " + name;
+
+    function setReminder(wantReminder) {
+      fetch('/set-reminder/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name, reminder: wantReminder })
+      })
+      .then(res => res.json())
+      .then(data => {
+        alert(data.message);
+        window.location.href = '/dashboard/';  // Redirect back
+      });
+    }
+  </script>
+</body>
+</html>

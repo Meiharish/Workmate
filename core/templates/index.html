@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Workmate Dashboard</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #2c3e50, #3498db);
+      margin: 0;
+      padding: 20px;
+      color: #ecf0f1;
+    }
+
+    h2 {
+      text-align: center;
+      color: #ffffff;
+      margin-bottom: 30px;
+      font-size: 2em;
+      letter-spacing: 1px;
+    }
+
+    label {
+      font-weight: bold;
+      margin-right: 10px;
+      font-size: 1.1em;
+    }
+
+    input[type="text"], input[type="datetime-local"] {
+      padding: 10px;
+      margin: 10px 5px;
+      border: none;
+      border-radius: 8px;
+      width: 240px;
+      transition: all 0.3s ease;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+    }
+
+    input[type="text"]:hover, input[type="datetime-local"]:hover {
+      outline: none;
+      box-shadow: 0 0 10px #3498db;
+    }
+
+    button {
+      padding: 10px 18px;
+      background-color: #e67e22;
+      color: #fff;
+      font-weight: bold;
+      border: none;
+      border-radius: 8px;
+      margin: 5px;
+      cursor: pointer;
+      transition: background-color 0.3s ease, transform 0.2s ease;
+    }
+
+    button:hover {
+      background-color: #d35400;
+      transform: scale(1.07);
+    }
+
+    p {
+      font-style: italic;
+      margin: 8px 0 20px 0;
+      font-size: 1em;
+      color: #f5f5f5;
+    }
+
+    h3 {
+      color: #ffffff;
+      margin-top: 40px;
+      font-size: 1.5em;
+    }
+
+    #project-list {
+      list-style-type: none;
+      padding-left: 0;
+    }
+
+    #project-list li {
+      background: #ffffff;
+      color: #2c3e50;
+      margin-bottom: 14px;
+      padding: 14px 18px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: transform 0.2s ease;
+    }
+
+    #project-list li:hover {
+      transform: scale(1.02);
+      background-color: #f8f9fa;
+    }
+
+    #project-list li button {
+      background-color: #2ecc71;
+      font-weight: bold;
+    }
+
+    #project-list li button:hover {
+      background-color: #27ae60;
+      transform: scale(1.07);
+    }
+
+    #popup {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background-color: #2ecc71;
+      color: white;
+      padding: 20px 30px;
+      border-radius: 10px;
+      font-size: 1.2em;
+      text-align: center;
+      display: none;
+      z-index: 1000;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    }
+
+    /* Fireworks container */
+    #fireworks {
+      position: relative;
+      width: 100%;
+      height: 200px;
+      margin-top: 30px;
+      display: none;
+      pointer-events: none;
+      overflow: visible;
+    }
+
+    /* Firework particle */
+    .particle {
+      position: absolute;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: radial-gradient(circle, #ffcc00, #ff6600);
+      animation: particle-fly 1.2s ease-out forwards;
+      opacity: 0;
+    }
+
+    @keyframes particle-fly {
+      0% {
+        transform: translate(0, 0) scale(1);
+        opacity: 1;
+      }
+      100% {
+        transform: translate(var(--x), var(--y)) scale(0);
+        opacity: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h2>Welcome to Workmate</h2>
+
+  <label for="name">Employee Name:</label>
+  <input type="text" id="name" placeholder="Enter name">
+  <button onclick="login()">Login</button>
+  <button onclick="logout()">Logout</button>
+
+  <p id="login-time"></p>
+  <p id="logout-time"></p>
+
+  <h3>Pending Projects</h3>
+  <ul id="project-list"></ul>
+
+  <div id="fireworks"></div>
+
+  <input type="text" id="project-name" placeholder="Project name">
+  <input type="datetime-local" id="project-deadline">
+  <button onclick="addProject()">Add Project</button>
+
+  <div id="popup"></div>
+
+  <script>
+    let projectData = [];
+    let remindedProjects = new Set();
+    let currentUser = '';
+
+    function showPopup(message, color = '#2ecc71') {
+      const popup = document.getElementById('popup');
+      popup.textContent = message;
+      popup.style.backgroundColor = color;
+      popup.style.display = 'block';
+      setTimeout(() => popup.style.display = 'none', 2500);
+    }
+
+    function login() {
+      const nameInput = document.getElementById('name');
+      const name = nameInput.value.trim();
+      if (!name) {
+        alert('Please enter your name to login.');
+        return;
+      }
+
+      fetch('/login/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name })
+      })
+      .then(response => response.json())
+      .then(data => {
+        currentUser = name;
+        document.getElementById('login-time').innerText = 'Login at: ' + data.timestamp;
+        document.getElementById('logout-time').innerText = '';
+        showPopup("Logged in successfully!");
+        fetchProjects();
+      });
+    }
+
+    function logout() {
+      if (!currentUser) {
+        alert('You are not logged in.');
+        return;
+      }
+      fetch('/logout/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: currentUser })
+      })
+      .then(response => response.json())
+      .then(data => {
+        document.getElementById('logout-time').innerText = 'Logout at: ' + data.timestamp;
+        showPopup("Logged out successfully!", "#e74c3c");
+        currentUser = '';
+        document.getElementById('login-time').innerText = '';
+        clearProjectsAndFireworks();
+      });
+    }
+
+    function clearProjectsAndFireworks() {
+      document.getElementById('project-list').innerHTML = '';
+      hideFireworks();
+    }
+
+    function fetchProjects() {
+      if (!currentUser) return;
+      fetch('/projects/')
+      .then(response => response.json())
+      .then(data => {
+        projectData = data.projects.filter(p => p.employee && p.employee.toLowerCase() === currentUser.toLowerCase());
+        remindedProjects.clear(); // Reset reminders when fetching new data
+        const projectList = document.getElementById('project-list');
+        projectList.innerHTML = '';
+
+        if (projectData.length === 0) {
+          showFireworks();
+        } else {
+          hideFireworks();
+          projectData.forEach(project => {
+            const li = document.createElement('li');
+            li.textContent = `${project.name} - Deadline: ${new Date(project.deadline).toLocaleString()}`;
+            const btn = document.createElement('button');
+            btn.textContent = 'Done';
+            btn.onclick = () => removeProject(project.name);
+            li.appendChild(btn);
+            projectList.appendChild(li);
+          });
+        }
+      });
+    }
+
+    function addProject() {
+      if (!currentUser) {
+        alert('Please login first to add projects.');
+        return;
+      }
+      const name = document.getElementById('project-name').value.trim();
+      const deadline = document.getElementById('project-deadline').value;
+
+      if (!name || !deadline) {
+        alert('Please fill in both project name and deadline');
+        return;
+      }
+
+      // Include employee name when adding project
+      fetch('/projects/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({
+          projects: [{ name: name, deadline: deadline, employee: currentUser }]
+        })
+      })
+      .then(response => {
+        if (!response.ok) throw new Error('Network response was not ok');
+        return response.json();
+      })
+      .then(() => {
+        fetchProjects();
+        document.getElementById('project-name').value = '';
+        document.getElementById('project-deadline').value = '';
+        showPopup("Project added successfully!");
+      })
+      .catch(error => {
+        console.error('Error:', error);
+        alert('Failed to add project. Please try again.');
+      });
+    }
+
+    function getCookie(name) {
+      let cookieValue = null;
+      if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+          const cookie = cookies[i].trim();
+          if (cookie.substring(0, name.length + 1) === (name + '=')) {
+            cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+            break;
+          }
+        }
+      }
+      return cookieValue;
+    }
+
+    function removeProject(name) {
+      if (!currentUser) return;
+      fetch('/remove_project/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name, employee: currentUser })
+      })
+      .then(response => response.json())
+      .then(() => {
+        fetchProjects();
+        showPopup("Project removed!");
+      });
+    }
+
+    // Fireworks logic
+    function createParticle(x, y) {
+      const particle = document.createElement('div');
+      particle.classList.add('particle');
+      const angle = Math.random() * 2 * Math.PI;
+      const distance = Math.random() * 120 + 60;
+      const dx = Math.cos(angle) * distance + 'px';
+      const dy = Math.sin(angle) * distance + 'px';
+      particle.style.setProperty('--x', dx);
+      particle.style.setProperty('--y', dy);
+      particle.style.left = x + 'px';
+      particle.style.top = y + 'px';
+      return particle;
+    }
+
+    function showFireworks() {
+      const container = document.getElementById('fireworks');
+      container.style.display = 'block';
+      container.innerHTML = '';
+
+      for (let i = 0; i < 25; i++) {
+        const x = container.clientWidth / 2 + (Math.random() * 100 - 50);
+        const y = container.clientHeight / 2 + (Math.random() * 40 - 20);
+        const particle = createParticle(x, y);
+        container.appendChild(particle);
+      }
+
+      // Remove particles after animation
+      setTimeout(() => {
+        container.innerHTML = '';
+      }, 1500);
+    }
+
+    function hideFireworks() {
+      const container = document.getElementById('fireworks');
+      container.style.display = 'none';
+      container.innerHTML = '';
+    }
+
+    // Periodic project deadline reminder
+    setInterval(() => {
+      if (!currentUser) return;
+      const now = new Date();
+      projectData.forEach(project => {
+        if (remindedProjects.has(project.name)) return;
+
+        const deadline = new Date(project.deadline);
+        const diff = deadline - now;
+        // Reminder 10 minutes before deadline (600000 ms)
+        if (diff > 0 && diff < 600000) {
+          alert(`Reminder: Project "${project.name}" deadline is approaching at ${deadline.toLocaleString()}`);
+          remindedProjects.add(project.name);
+        }
+      });
+    }, 60000); // Check every 1 minute
+
+  </script>
+</body>
+</html>
